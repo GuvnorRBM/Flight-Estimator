@@ -101,8 +101,8 @@
   <main>
     <div class="card">
       <div class="warn">
-        Assumptions: Matrice 4DT, 60 m AGL, 9 m/s cruise, wide FOV 82°, lawnmower mapping. Battery swaps add <b>15 mins</b> per <b>38 mins</b> airborne.
-        Baseline 2D mapping is always included.
+        Assumptions: Matrice 4DT typical planning profiles. Battery swaps add <b>15 mins</b> per <b>38 mins</b> airborne.
+        Baseline 2D grid mapping is always included.
       </div>
     </div>
 
@@ -171,19 +171,19 @@
         <div>
           <div class="row">
             <input id="hiRes3d" type="checkbox" />
-            <label for="hiRes3d" style="margin:0;">High res 3D mapping (adds 5× baseline 2D)</label>
+            <label for="hiRes3d" style="margin:0;">High res 3D mapping (grid)</label>
           </div>
-          <div class="muted">Additive to baseline.</div>
+          <div class="muted">Adds an additional grid flight over the same area.</div>
         </div>
 
         <div>
           <label for="thermalMode">Thermal requirement</label>
           <select id="thermalMode">
             <option value="none" selected>None</option>
-            <option value="basic">Basic thermal (adds 2× baseline 2D)</option>
-            <option value="advanced">Advanced thermal (adds 8× baseline 2D)</option>
+            <option value="basic">Thermal sweep (grid video)</option>
+            <option value="advanced">Thermal inspection (advanced grid)</option>
           </select>
-          <div class="muted">Thermal is additive to baseline 2D.</div>
+          <div class="muted">Thermal is additive and area-based, same site coverage, different efficiency.</div>
         </div>
       </div>
 
@@ -201,7 +201,7 @@
             <input id="hiResBuilding3d" type="checkbox" />
             <label for="hiResBuilding3d" style="margin:0;">High res 3D of a building</label>
           </div>
-          <div class="muted">Adds 7.5× baseline 2D (3D plus extra 50%).</div>
+          <div class="muted">Adds building-style 3D overhead (derived from 3D grid).</div>
         </div>
       </div>
 
@@ -262,13 +262,7 @@
   </main>
 
   <script>
-    // Fixed assumptions
-    const ALT_M = 60;
-    const FLIGHT_SPEED_MS = 9;
-    const WIDE_FOV_DEG = 82;
-
     // Hidden defaults (per your request)
-    const DEFAULT_SIDELAP = 0.70;     // fixed
     const DEFAULT_WALK_MS = 1.4;      // fixed RTK walk speed
 
     const SWAP_THRESHOLD_MIN = 38;
@@ -276,6 +270,12 @@
 
     const PANO_STOPS = 5;
     const PANO_STOP_MIN = 3;
+
+    // Calibration factors derived from your FlightHub planned routes (current dataset)
+    // These represent efficiency relative to 2D grid (1.0). Lower = slower / more passes / tighter profile.
+    const FACTOR_3D_GRID = 0.296;        // ~3.3x slower than 2D
+    const FACTOR_THERMAL_BASIC = 0.419;  // ~2.4x slower than 2D
+    const FACTOR_THERMAL_ADV = 0.171;    // ~5.8x slower than 2D
 
     const $ = (id) => document.getElementById(id);
 
@@ -300,26 +300,42 @@
       return { label: "square", multiplier: MULT_SQUARE };
     }
 
-    function swathWidthM(altM, fovDeg) {
-      const halfRad = (fovDeg * Math.PI / 180) / 2;
-      return 2 * altM * Math.tan(halfRad);
+    // 2D efficiency curve (m²/min). Interpolated in log space so large sites get more efficient.
+    // Anchors chosen to reflect your dataset behaviour (solar vs quarry).
+    function eff2D_m2_per_min(areaM2) {
+      const a = Math.max(1, areaM2);
+      const anchors = [
+        { area: 10_000,  eff: 6000  },
+        { area: 100_000, eff: 7500  },
+        { area: 600_000, eff: 10650 }
+      ];
+
+      if (a <= anchors[0].area) return anchors[0].eff;
+      if (a >= anchors[anchors.length - 1].area) return anchors[anchors.length - 1].eff;
+
+      const logA = Math.log10(a);
+      for (let i = 0; i < anchors.length - 1; i++) {
+        const a0 = anchors[i].area, a1 = anchors[i + 1].area;
+        if (a >= a0 && a <= a1) {
+          const x0 = Math.log10(a0), x1 = Math.log10(a1);
+          const t = (logA - x0) / (x1 - x0);
+          return anchors[i].eff + t * (anchors[i + 1].eff - anchors[i].eff);
+        }
+      }
+      return anchors[0].eff;
     }
 
-    function mappingMinutesFromArea(areaM2, sidelapFrac) {
-      // Equivalent square side for area
-      const side = Math.sqrt(areaM2);
-      const swath = swathWidthM(ALT_M, WIDE_FOV_DEG);
-      const spacing = swath * (1 - sidelapFrac);
-
-      const lines = Math.max(1, Math.ceil(side / spacing));
-      const pathM = (lines * side); // raw path length, before site multiplier
-
-      const seconds = pathM / FLIGHT_SPEED_MS;
-      return seconds / 60;
+    function minsFromArea(areaM2, factor) {
+      const eff2d = eff2D_m2_per_min(areaM2);
+      const effMode = eff2d * factor;
+      return areaM2 / effMode;
     }
 
     function perimeterFlightMinutes(P) {
-      const seconds = P / FLIGHT_SPEED_MS;
+      // Perimeter flight at assumed cruise speed is approximated into the plan time already via calibration elsewhere.
+      // Keep this simple for pano.
+      const cruiseMs = 9;
+      const seconds = P / cruiseMs;
       return seconds / 60;
     }
 
@@ -341,11 +357,9 @@
     }
 
     function setBlocked(blocked) {
-      // Grey out results and prevent interaction with most inputs
       $("resultsCard").style.opacity = blocked ? "0.45" : "1";
       $("resultsCard").style.pointerEvents = blocked ? "none" : "auto";
 
-      // Disable all controls except the checkbox that clears the block
       const controls = ["perimeter","perimeterUnit","shape","complexity","hiRes3d","thermalMode","hiResPano","hiResBuilding3d","rtkWalk","exampleBtn"];
       controls.forEach(id => {
         const el = $(id);
@@ -353,7 +367,6 @@
         el.disabled = blocked;
       });
 
-      // Allow unchecking to clear
       $("nearRestricted").disabled = false;
     }
 
@@ -421,22 +434,37 @@
       const baseSquareArea = areaSquareFromPerimeter(P);
       const areaM2 = baseSquareArea * cfg.multiplier;
 
-      // Baseline 2D always included
-      const base2DRaw = mappingMinutesFromArea(areaM2, DEFAULT_SIDELAP);
-
-      // Build airborne components (raw, then site multiplier applied)
+      // Airborne components (raw), then apply site multiplier
       const components = [];
 
-      components.push({ name: "Baseline 2D mapping (area-based)", mins: base2DRaw, airborne: true });
+      // Baseline 2D always included
+      const t2d = minsFromArea(areaM2, 1.0);
+      components.push({ name: "Baseline 2D mapping (grid)", mins: t2d, airborne: true });
 
-      if ($("hiRes3d").checked) components.push({ name: "High res 3D mapping (adds 5× baseline 2D)", mins: base2DRaw * 5, airborne: true });
+      // 3D grid
+      if ($("hiRes3d").checked) {
+        const t3d = minsFromArea(areaM2, FACTOR_3D_GRID);
+        components.push({ name: "High res 3D mapping (grid)", mins: t3d, airborne: true });
+      }
 
+      // Thermal grid
       const thermalMode = $("thermalMode").value;
-      if (thermalMode === "basic") components.push({ name: "Basic thermal (adds 2× baseline 2D)", mins: base2DRaw * 2, airborne: true });
-      if (thermalMode === "advanced") components.push({ name: "Advanced thermal (adds 8× baseline 2D)", mins: base2DRaw * 8, airborne: true });
+      if (thermalMode === "basic") {
+        const ttb = minsFromArea(areaM2, FACTOR_THERMAL_BASIC);
+        components.push({ name: "Thermal sweep (grid video)", mins: ttb, airborne: true });
+      }
+      if (thermalMode === "advanced") {
+        const tta = minsFromArea(areaM2, FACTOR_THERMAL_ADV);
+        components.push({ name: "Thermal inspection (advanced grid)", mins: tta, airborne: true });
+      }
 
-      if ($("hiResBuilding3d").checked) components.push({ name: "High res building 3D (adds 7.5× baseline 2D)", mins: base2DRaw * 7.5, airborne: true });
+      // Building 3D (derived from 3D grid + 50%)
+      if ($("hiResBuilding3d").checked) {
+        const t3d = minsFromArea(areaM2, FACTOR_3D_GRID);
+        components.push({ name: "High res building 3D (3D grid + 50%)", mins: t3d * 1.5, airborne: true });
+      }
 
+      // Pano (perimeter-based)
       if ($("hiResPano").checked) {
         const panoRaw = perimeterFlightMinutes(P) + (PANO_STOPS * PANO_STOP_MIN);
         components.push({ name: `High res panoramic (perimeter + ${PANO_STOPS} stops)`, mins: panoRaw, airborne: true });
@@ -462,11 +490,10 @@
       // Round up to nearest 15
       const totalRoundedMins = roundUpToNearest(totalRawMins, 15);
 
-      // Render breakdown (simple mins, not rounded to 15 each)
+      // Render breakdown (mins after site multiplier)
       const tbody = $("breakdownBody");
       tbody.innerHTML = "";
 
-      // Components (show mins after site multiplier to keep it honest)
       components.forEach(c => {
         const minsAdj = c.airborne ? (c.mins * siteMult) : c.mins;
         const tr = document.createElement("tr");
@@ -533,13 +560,13 @@
       .forEach(id => $(id).addEventListener("input", calc));
 
     $("exampleBtn").addEventListener("click", () => {
-      $("perimeter").value = 2400;
+      $("perimeter").value = 3222;
       $("perimeterUnit").value = "m";
-      $("shape").value = "square";
-      $("complexity").value = "1.6";
+      $("shape").value = "rectangle";
+      $("complexity").value = "1";
       $("nearRestricted").checked = false;
 
-      // All tick boxes default off by design, but for the example, show a realistic combination:
+      // Example only (defaults remain off until you hit example)
       $("hiRes3d").checked = true;
       $("thermalMode").value = "basic";
       $("hiResPano").checked = true;
