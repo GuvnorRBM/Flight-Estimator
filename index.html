@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Drone Flight Time Estimator</title>
   <style>
-    :root { --gap: 12px; --radius: 12px; }
+    :root { --gap: 12px; --radius: 14px; }
     body {
       font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
       margin: 0;
@@ -14,94 +14,117 @@
       line-height: 1.35;
     }
     header {
-      padding: 18px 16px;
+      padding: 16px 14px;
       background: #12131a;
       border-bottom: 1px solid rgba(255,255,255,0.08);
     }
     header h1 { margin: 0 0 6px 0; font-size: 18px; font-weight: 900; }
     header p { margin: 0; opacity: 0.92; font-size: 13px; }
-    main { padding: 16px; max-width: 860px; margin: 0 auto; }
+
+    main { padding: 14px; max-width: 860px; margin: 0 auto; }
+
     .card {
       background: #12131a;
       border: 1px solid rgba(255,255,255,0.08);
       border-radius: var(--radius);
       padding: 14px;
-      margin-bottom: 14px;
+      margin-bottom: 12px;
     }
+
     .grid { display: grid; gap: var(--gap); grid-template-columns: 1fr; }
-    @media (min-width: 720px) { .grid.two { grid-template-columns: 1fr 1fr; } .grid.three { grid-template-columns: 1fr 1fr 1fr; } }
-    label { display: block; font-size: 13px; margin-bottom: 6px; opacity: 0.9; }
+    @media (min-width: 720px) {
+      .grid.two { grid-template-columns: 1fr 1fr; }
+      .grid.three { grid-template-columns: 1fr 1fr 1fr; }
+    }
+
+    label { display: block; font-size: 13px; margin-bottom: 6px; opacity: 0.92; }
+
     input[type="number"], select {
       width: 100%;
-      padding: 12px;
-      border-radius: 10px;
+      padding: 14px;
+      border-radius: 12px;
       border: 1px solid rgba(255,255,255,0.14);
       background: #0e0f14;
       color: #e8e8ea;
       outline: none;
       box-sizing: border-box;
+      font-size: 16px; /* mobile-friendly (prevents iOS zoom quirks) */
     }
-    input[type="checkbox"] { transform: scale(1.15); }
+
+    input[type="checkbox"] { transform: scale(1.2); }
+
     .row { display: flex; gap: 10px; align-items: center; }
-    .muted { opacity: 0.75; font-size: 12px; }
+    .muted { opacity: 0.78; font-size: 12px; }
+
     .pill {
       display: inline-block;
-      padding: 6px 10px;
+      padding: 7px 10px;
       border-radius: 999px;
       background: rgba(255,255,255,0.08);
       border: 1px solid rgba(255,255,255,0.12);
       font-size: 12px;
       margin-right: 8px;
       margin-top: 6px;
+      white-space: nowrap;
     }
-    .big { font-size: 22px; font-weight: 950; margin: 6px 0 10px 0; }
+
+    .big { font-size: 22px; font-weight: 950; margin: 6px 0 8px 0; }
+
     table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 13px; }
     th, td { padding: 10px 8px; border-bottom: 1px solid rgba(255,255,255,0.08); text-align: left; }
     th { opacity: 0.8; font-weight: 750; }
     .right { text-align: right; }
+
     .warn {
       margin-top: 10px;
       padding: 10px 12px;
-      border-radius: 10px;
+      border-radius: 12px;
       border: 1px solid rgba(255, 195, 0, 0.25);
       background: rgba(255, 195, 0, 0.08);
       font-size: 12px;
       opacity: 0.98;
     }
+
     .stop {
       margin-top: 10px;
       padding: 12px;
-      border-radius: 12px;
+      border-radius: 14px;
       border: 1px solid rgba(255, 80, 80, 0.35);
       background: rgba(255, 80, 80, 0.10);
       font-size: 13px;
       display: none;
     }
+
     button {
       width: 100%;
-      padding: 12px;
+      padding: 14px;
       border-radius: 12px;
       border: 1px solid rgba(255,255,255,0.14);
       background: rgba(255,255,255,0.10);
       color: #e8e8ea;
       font-weight: 850;
       cursor: pointer;
+      font-size: 16px;
     }
     button:hover { background: rgba(255,255,255,0.14); }
+
     code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
+
+    /* Keep the pills readable on small screens */
+    .pill-wrap { display: flex; flex-wrap: wrap; gap: 6px 6px; }
   </style>
 </head>
 
 <body>
   <header>
     <h1>Drone Flight Time Estimator</h1>
-    <p><b>Estimator for flight time only.</b> This does not include pre-surveys, permissions/authorisations, setup/take-down, on-site delays, or post-mission processing.</p>
+    <p><b>Flight time estimate only.</b> It does not include permissions/authorisations, pre-surveys, setup/take-down, waiting time, or post-flight processing.</p>
   </header>
 
   <main>
     <div class="card">
       <div class="warn">
-        Assumptions: Matrice 4DT typical planning profiles. Battery swaps add <b>15 mins</b> per <b>38 mins</b> airborne.
+        Assumptions are based on typical Matrice 4DT planning profiles. Battery swaps add <b>15 mins</b> per <b>38 mins</b> airborne.
         Baseline 2D grid mapping is always included.
       </div>
     </div>
@@ -111,37 +134,42 @@
         <div>
           <label for="perimeter">Site perimeter</label>
           <div class="grid three" style="grid-template-columns: 2fr 1fr 1fr;">
-            <input id="perimeter" type="number" min="0" step="0.01" placeholder="e.g. 2400" />
+            <input id="perimeter" type="number" min="0" step="0.01" placeholder="e.g. 2400" inputmode="decimal" />
             <select id="perimeterUnit" aria-label="Perimeter unit">
               <option value="m">metres</option>
               <option value="km">kilometres</option>
             </select>
             <button type="button" id="exampleBtn">Example</button>
           </div>
-          <div class="muted" style="margin-top:6px;">Perimeter drives the estimate. Area is derived using the selected shape.</div>
+          <div class="muted" style="margin-top:6px;">
+            Perimeter drives the estimate. We convert it into an estimated area using the shape you pick.
+          </div>
         </div>
 
         <div>
-          <label for="shape">Perimeter type</label>
+          <label for="shape">Perimeter shape</label>
           <select id="shape">
-            <option value="square" selected>Square (baseline)</option>
+            <option value="square" selected>Square (default)</option>
             <option value="circle">Circle (largest area)</option>
             <option value="rectangle">Rectangle (assumes 2:1)</option>
             <option value="complex">Complex (contact UAS)</option>
           </select>
-          <div class="muted" style="margin-top:6px;">Rectangle assumes 2:1 aspect ratio. Complex sites need a proper look.</div>
+          <div class="muted" style="margin-top:6px;">
+            If the shape is complex, the estimator is not suitable.
+          </div>
         </div>
       </div>
 
       <div class="grid two" style="margin-top:12px;">
         <div>
-          <label for="complexity">Complex site, ie power lines, major road, railway etc</label>
+          <label for="complexity">Site conditions</label>
           <select id="complexity">
-            <option value="1" selected>Standard</option>
-            <option value="1.6">Busy</option>
-            <option value="2">Complex</option>
+            <option value="1" selected>Normal</option>
+            <option value="2">Complex (power lines, major road, railway etc)</option>
           </select>
-          <div class="muted" style="margin-top:6px;">Applies a multiplier to airborne flight time (not RTK walking time).</div>
+          <div class="muted" style="margin-top:6px;">
+            Complex sites take longer, this applies a multiplier to airborne flight time.
+          </div>
         </div>
 
         <div>
@@ -150,7 +178,9 @@
             <input id="nearRestricted" type="checkbox" />
             <label for="nearRestricted" style="margin:0;">Yes</label>
           </div>
-          <div class="muted" style="margin-top:6px;">If yes, you must contact UAS before proceeding.</div>
+          <div class="muted" style="margin-top:6px;">
+            If yes, you must contact UAS before proceeding.
+          </div>
         </div>
       </div>
 
@@ -161,7 +191,7 @@
 
       <div class="stop" id="complexStop">
         <b>Complex site selected.</b><br />
-        This estimator is not suitable for complex geometry (multiple compounds, voids, internal boundaries, segmented work areas, etc).
+        This estimator is not suitable for complex geometry (multiple compounds, internal boundaries, segmented work areas, voids, etc).
         Please contact the <b>UAS Department</b> for a proper estimate and approach.
       </div>
     </div>
@@ -171,19 +201,19 @@
         <div>
           <div class="row">
             <input id="hiRes3d" type="checkbox" />
-            <label for="hiRes3d" style="margin:0;">High res 3D mapping (grid)</label>
+            <label for="hiRes3d" style="margin:0;">Add 3D mapping (grid)</label>
           </div>
           <div class="muted">Adds an additional grid flight over the same area.</div>
         </div>
 
         <div>
-          <label for="thermalMode">Thermal requirement</label>
+          <label for="thermalMode">Add thermal</label>
           <select id="thermalMode">
             <option value="none" selected>None</option>
             <option value="basic">Thermal sweep (grid video)</option>
             <option value="advanced">Thermal inspection (advanced grid)</option>
           </select>
-          <div class="muted">Thermal is additive and area-based, same site coverage, different efficiency.</div>
+          <div class="muted">Thermal is additive and area-based.</div>
         </div>
       </div>
 
@@ -191,7 +221,7 @@
         <div>
           <div class="row">
             <input id="hiResPano" type="checkbox" />
-            <label for="hiResPano" style="margin:0;">High res panoramic</label>
+            <label for="hiResPano" style="margin:0;">Add panoramic photos</label>
           </div>
           <div class="muted">Perimeter flight time plus 5 stops of 3 mins.</div>
         </div>
@@ -199,7 +229,7 @@
         <div>
           <div class="row">
             <input id="hiResBuilding3d" type="checkbox" />
-            <label for="hiResBuilding3d" style="margin:0;">High res 3D of a building</label>
+            <label for="hiResBuilding3d" style="margin:0;">Add building 3D capture</label>
           </div>
           <div class="muted">Adds building-style 3D overhead (derived from 3D grid).</div>
         </div>
@@ -209,9 +239,9 @@
         <div>
           <div class="row">
             <input id="rtkWalk" type="checkbox" />
-            <label for="rtkWalk" style="margin:0;">Surgery grade mapping (RTK walk)</label>
+            <label for="rtkWalk" style="margin:0;">Add RTK survey (walk the perimeter)</label>
           </div>
-          <div class="muted">Time to walk the perimeter (separate from airborne time).</div>
+          <div class="muted">Time to walk the perimeter (separate from flight time).</div>
         </div>
       </div>
 
@@ -222,17 +252,17 @@
     </div>
 
     <div class="card" id="resultsCard" aria-live="polite">
-      <div class="muted">Results</div>
+      <div class="muted">Result</div>
       <div class="big" id="totalTime">Enter a perimeter to calculate</div>
 
-      <div>
+      <div class="pill-wrap">
         <span class="pill" id="shapePill">Shape: -</span>
         <span class="pill" id="multPill">Shape multiplier: -</span>
-        <span class="pill" id="areaPill">Area: 0 m²</span>
+        <span class="pill" id="areaPill">Estimated area: 0 m²</span>
         <span class="pill" id="complexityPill">Site multiplier: 1.0×</span>
       </div>
 
-      <div>
+      <div class="pill-wrap" style="margin-top:4px;">
         <span class="pill" id="airbornePill">Airborne: 0 mins</span>
         <span class="pill" id="swapPill">Swaps: 0 (0 mins)</span>
         <span class="pill" id="rtkPill">RTK walk: 0 mins</span>
@@ -242,8 +272,8 @@
       <table>
         <thead>
           <tr>
-            <th>Component</th>
-            <th class="right">Time (mins)</th>
+            <th>What’s included</th>
+            <th class="right">Mins</th>
           </tr>
         </thead>
         <tbody id="breakdownBody"></tbody>
@@ -256,14 +286,14 @@
       </table>
 
       <div class="muted" style="margin-top:10px;">
-        Reminder: flight-time estimate only, no pre-survey, setup/take-down, delays, or processing.
+        Reminder: flight time estimate only. For a formal quote, contact the UAS Department.
       </div>
     </div>
   </main>
 
   <script>
-    // Hidden defaults (per your request)
-    const DEFAULT_WALK_MS = 1.4;      // fixed RTK walk speed
+    // Hidden defaults
+    const DEFAULT_WALK_MS = 1.4; // fixed RTK walk speed
 
     const SWAP_THRESHOLD_MIN = 38;
     const SWAP_ALLOWANCE_MIN = 15;
@@ -271,11 +301,16 @@
     const PANO_STOPS = 5;
     const PANO_STOP_MIN = 3;
 
-    // Calibration factors derived from your FlightHub planned routes (current dataset)
-    // These represent efficiency relative to 2D grid (1.0). Lower = slower / more passes / tighter profile.
-    const FACTOR_3D_GRID = 0.296;        // ~3.3x slower than 2D
-    const FACTOR_THERMAL_BASIC = 0.419;  // ~2.4x slower than 2D
-    const FACTOR_THERMAL_ADV = 0.171;    // ~5.8x slower than 2D
+    // Calibration factors from FlightHub planned routes (relative to 2D grid)
+    const FACTOR_3D_GRID = 0.296;
+    const FACTOR_THERMAL_BASIC = 0.419;
+    const FACTOR_THERMAL_ADV = 0.171;
+
+    // For the "Normal / Complex" selector:
+    // Normal = 1.0, Complex = 2.0 (keeps your original Complex multiplier)
+    const COMPLEX_POPUP_TEXT =
+      "This looks like a complex site (power lines, major road, railway, etc).\n\n" +
+      "This estimator will still give a rough time, but we recommend speaking with the UAS Department for a more accurate picture before proceeding.";
 
     const $ = (id) => document.getElementById(id);
 
@@ -300,8 +335,7 @@
       return { label: "square", multiplier: MULT_SQUARE };
     }
 
-    // 2D efficiency curve (m²/min). Interpolated in log space so large sites get more efficient.
-    // Anchors chosen to reflect your dataset behaviour (solar vs quarry).
+    // 2D efficiency curve (m²/min). Large sites are more efficient.
     function eff2D_m2_per_min(areaM2) {
       const a = Math.max(1, areaM2);
       const anchors = [
@@ -332,8 +366,7 @@
     }
 
     function perimeterFlightMinutes(P) {
-      // Perimeter flight at assumed cruise speed is approximated into the plan time already via calibration elsewhere.
-      // Keep this simple for pano.
+      // Pano only: simple perimeter flight at assumed cruise speed
       const cruiseMs = 9;
       const seconds = P / cruiseMs;
       return seconds / 60;
@@ -374,7 +407,7 @@
       $("totalTime").textContent = "Enter a perimeter to calculate";
       $("shapePill").textContent = "Shape: -";
       $("multPill").textContent = "Shape multiplier: -";
-      $("areaPill").textContent = "Area: 0 m²";
+      $("areaPill").textContent = "Estimated area: 0 m²";
       $("complexityPill").textContent = "Site multiplier: 1.0×";
       $("airbornePill").textContent = "Airborne: 0 mins";
       $("swapPill").textContent = "Swaps: 0 (0 mins)";
@@ -387,7 +420,7 @@
     function renderResults({shapeLabel, shapeMult, areaM2, siteMult, airborneMins, swaps, swapMins, rtkMins, totalRawMins, totalRoundedMins}) {
       $("shapePill").textContent = `Shape: ${shapeLabel}`;
       $("multPill").textContent = `Shape multiplier: ${shapeMult.toFixed(3)}`;
-      $("areaPill").textContent = `Area: ${Math.round(areaM2).toLocaleString("en-GB")} m²`;
+      $("areaPill").textContent = `Estimated area: ${Math.round(areaM2).toLocaleString("en-GB")} m²`;
       $("complexityPill").textContent = `Site multiplier: ${siteMult}×`;
 
       $("airbornePill").textContent = `Airborne: ${Math.round(airborneMins)} mins`;
@@ -439,15 +472,13 @@
 
       // Baseline 2D always included
       const t2d = minsFromArea(areaM2, 1.0);
-      components.push({ name: "Baseline 2D mapping (grid)", mins: t2d, airborne: true });
+      components.push({ name: "2D mapping (grid)", mins: t2d, airborne: true });
 
-      // 3D grid
       if ($("hiRes3d").checked) {
         const t3d = minsFromArea(areaM2, FACTOR_3D_GRID);
-        components.push({ name: "High res 3D mapping (grid)", mins: t3d, airborne: true });
+        components.push({ name: "3D mapping (grid)", mins: t3d, airborne: true });
       }
 
-      // Thermal grid
       const thermalMode = $("thermalMode").value;
       if (thermalMode === "basic") {
         const ttb = minsFromArea(areaM2, FACTOR_THERMAL_BASIC);
@@ -458,48 +489,39 @@
         components.push({ name: "Thermal inspection (advanced grid)", mins: tta, airborne: true });
       }
 
-      // Building 3D (derived from 3D grid + 50%)
       if ($("hiResBuilding3d").checked) {
         const t3d = minsFromArea(areaM2, FACTOR_3D_GRID);
-        components.push({ name: "High res building 3D (3D grid + 50%)", mins: t3d * 1.5, airborne: true });
+        components.push({ name: "Building 3D capture (3D grid + 50%)", mins: t3d * 1.5, airborne: true });
       }
 
-      // Pano (perimeter-based)
       if ($("hiResPano").checked) {
         const panoRaw = perimeterFlightMinutes(P) + (PANO_STOPS * PANO_STOP_MIN);
-        components.push({ name: `High res panoramic (perimeter + ${PANO_STOPS} stops)`, mins: panoRaw, airborne: true });
+        components.push({ name: `Panoramic photos (perimeter + ${PANO_STOPS} stops)`, mins: panoRaw, airborne: true });
       }
 
-      // Apply site multiplier to airborne mins
-      const airborneRawMins = components.filter(c => c.airborne).reduce((a, c) => a + c.mins, 0);
+      const airborneRawMins = components.reduce((a, c) => a + c.mins, 0);
       const airborneMins = airborneRawMins * siteMult;
 
-      // Battery swaps based on multiplied airborne time
       const swaps = Math.floor(airborneMins / SWAP_THRESHOLD_MIN);
       const swapMins = swaps * SWAP_ALLOWANCE_MIN;
 
-      // RTK walking time (not multiplied)
       let rtkMins = 0;
       if ($("rtkWalk").checked) {
         rtkMins = (P / DEFAULT_WALK_MS) / 60;
       }
 
-      // Total raw on-site minutes (airborne + swaps + walk)
       const totalRawMins = airborneMins + swapMins + rtkMins;
-
-      // Round up to nearest 15
       const totalRoundedMins = roundUpToNearest(totalRawMins, 15);
 
-      // Render breakdown (mins after site multiplier)
       const tbody = $("breakdownBody");
       tbody.innerHTML = "";
 
       components.forEach(c => {
-        const minsAdj = c.airborne ? (c.mins * siteMult) : c.mins;
+        const minsAdj = c.mins * siteMult;
         const tr = document.createElement("tr");
         const td1 = document.createElement("td");
         const td2 = document.createElement("td");
-        td1.textContent = c.airborne ? `${c.name} (×${siteMult})` : c.name;
+        td1.textContent = `${c.name}${siteMult !== 1 ? ` (×${siteMult})` : ""}`;
         td2.textContent = `${Math.round(minsAdj)}`;
         td2.className = "right";
         tr.appendChild(td1);
@@ -507,7 +529,6 @@
         tbody.appendChild(tr);
       });
 
-      // Swaps row
       {
         const tr = document.createElement("tr");
         const td1 = document.createElement("td");
@@ -520,12 +541,11 @@
         tbody.appendChild(tr);
       }
 
-      // RTK row if used
       if ($("rtkWalk").checked) {
         const tr = document.createElement("tr");
         const td1 = document.createElement("td");
         const td2 = document.createElement("td");
-        td1.textContent = "RTK perimeter walk";
+        td1.textContent = "RTK survey walk (perimeter)";
         td2.textContent = `${Math.round(rtkMins)}`;
         td2.className = "right";
         tr.appendChild(td1);
@@ -547,17 +567,34 @@
       });
     }
 
-    // Restricted proximity prompt + block
+    // Popups / prompts
     $("nearRestricted").addEventListener("change", () => {
       if ($("nearRestricted").checked) {
-        alert("This site may be within 5 miles of an Airport, Prison, or MOD facility.\n\nContact the UAS Department before proceeding further.");
+        alert(
+          "This site may be within 5 miles of an Airport, Prison, or MOD facility.\n\n" +
+          "Contact the UAS Department before proceeding further."
+        );
+      }
+      calc();
+    });
+
+    // When user selects "Complex" site conditions, show a recommendation popup (but do not block)
+    let warnedComplex = false;
+    $("complexity").addEventListener("change", () => {
+      const v = parseFloat($("complexity").value) || 1;
+      if (v > 1 && !warnedComplex) {
+        warnedComplex = true;
+        alert(COMPLEX_POPUP_TEXT);
       }
       calc();
     });
 
     // Wire up events
-    ["perimeter","perimeterUnit","shape","complexity","hiRes3d","thermalMode","hiResPano","hiResBuilding3d","rtkWalk"]
+    ["perimeter","perimeterUnit","shape","hiRes3d","thermalMode","hiResPano","hiResBuilding3d","rtkWalk"]
       .forEach(id => $(id).addEventListener("input", calc));
+
+    // Shape selection can affect suitability
+    $("shape").addEventListener("change", calc);
 
     $("exampleBtn").addEventListener("click", () => {
       $("perimeter").value = 3222;
@@ -566,7 +603,6 @@
       $("complexity").value = "1";
       $("nearRestricted").checked = false;
 
-      // Example only (defaults remain off until you hit example)
       $("hiRes3d").checked = true;
       $("thermalMode").value = "basic";
       $("hiResPano").checked = true;
